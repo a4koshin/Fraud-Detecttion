@@ -1,8 +1,45 @@
 from fastapi import FastAPI
+import joblib
+import pandas as pd
+from app.schemas import TransactionInput
 
-app = FastAPI()
+app = FastAPI(title="Fraud Detection API")
+
+# Load pipeline (preprocessing + model)
+model = joblib.load("fraud_pipeline.pkl")
+
+THRESHOLD = 0.35
 
 
 @app.get("/")
 def root():
-    return {"First code of FastAPI"}
+    return {"status": "Fraud Detection API running"}
+
+
+@app.post("/predict")
+def predict_fraud(data: TransactionInput):
+    # Convert input to DataFrame (CRITICAL)
+    input_df = pd.DataFrame([{
+        "amount": data.amount,
+        "customer_age": data.customer_age,
+        "hour": data.hour,
+        "transaction_type": data.transaction_type,
+        "merchant_category": data.merchant_category,
+        "card_type": data.card_type,
+        "country": data.country,
+        "device": data.device,
+    }])
+
+    # Predict probability
+    prob = model.predict_proba(input_df)[0][1]
+    is_fraud = int(prob >= THRESHOLD)
+
+    return {
+        "fraud_probability": round(float(prob), 4),
+        "is_fraud": is_fraud,
+        "risk_level": (
+            "LOW" if prob < 0.35 else
+            "MEDIUM" if prob < 0.7 else
+            "HIGH"
+        )
+    }
