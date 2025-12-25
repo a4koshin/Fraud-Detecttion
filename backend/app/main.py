@@ -1,11 +1,27 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import joblib
 import pandas as pd
 from app.schemas import TransactionInput
 
 app = FastAPI(title="Fraud Detection API")
 
-# Load pipeline (preprocessing + model)
+# ✅ CORS MUST BE HERE (BEFORE ROUTES)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Load pipeline
 model = joblib.load("fraud_pipeline.pkl")
 
 THRESHOLD = 0.35
@@ -18,7 +34,6 @@ def root():
 
 @app.post("/predict")
 def predict_fraud(data: TransactionInput):
-    # Convert input to DataFrame (CRITICAL)
     input_df = pd.DataFrame([{
         "amount": data.amount,
         "customer_age": data.customer_age,
@@ -30,13 +45,11 @@ def predict_fraud(data: TransactionInput):
         "device": data.device,
     }])
 
-    # Predict probability
     prob = model.predict_proba(input_df)[0][1]
-    is_fraud = int(prob >= THRESHOLD)
 
     return {
         "fraud_probability": round(float(prob), 4),
-        "is_fraud": is_fraud,
+        "is_fraud": int(prob >= THRESHOLD),
         "risk_level": (
             "LOW" if prob < 0.35 else
             "MEDIUM" if prob < 0.7 else
