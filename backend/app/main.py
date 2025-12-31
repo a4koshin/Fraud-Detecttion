@@ -3,16 +3,18 @@ from fastapi.middleware.cors import CORSMiddleware
 import joblib
 import pandas as pd
 from app.schemas import TransactionInput
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 app = FastAPI(title="Fraud Detection API")
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+
+origins = [origin.strip() for origin in FRONTEND_URL.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
