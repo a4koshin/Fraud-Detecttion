@@ -25,6 +25,7 @@ export default function FraudForm() {
     country: "",
     device: "",
   });
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string>("");
@@ -52,7 +53,7 @@ export default function FraudForm() {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:8000/predict", {
+      const res = await fetch(`${API_URL}/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
