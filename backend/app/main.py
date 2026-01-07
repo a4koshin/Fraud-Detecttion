@@ -1,50 +1,68 @@
+from transformer import transform_input
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import joblib
-import pandas as pd
 from app.schemas import TransactionInput
 from dotenv import load_dotenv
+import joblib
 import os
+import sys
 
+# --------------------------------------------------
+# Setup paths
+# --------------------------------------------------
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
+
+# --------------------------------------------------
+# Imports AFTER path fix
+# --------------------------------------------------
+
+# --------------------------------------------------
+# Load env
+# --------------------------------------------------
 load_dotenv()
+
 app = FastAPI(title="Fraud Detection API")
-FRONTEND_URL = os.getenv("FRONTEND_URL")
 
-origins = [origin.strip() for origin in FRONTEND_URL.split(",")]
-
+# --------------------------------------------------
+# CORS (DEV)
+# --------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Load pipeline
-model = joblib.load("fraud_pipeline.pkl")
+# --------------------------------------------------
+# Load model bundle ONCE
+# --------------------------------------------------
+MODEL_PATH = os.path.join(BASE_DIR, "fraud_model_rf_high_recall.pkl")
 
-THRESHOLD = 0.35
+bundle = joblib.load(MODEL_PATH)
+model = bundle["model"]
+THRESHOLD = bundle["threshold"]  # 0.05
+
+# --------------------------------------------------
+# Health check
+# --------------------------------------------------
 
 
 @app.get("/")
 def root():
-    return {"status": "Fraud Detection API running"}
+    return {"status": "Fraud Detection server is running"}
+
+# --------------------------------------------------
+# Prediction endpoint
+# --------------------------------------------------
 
 
 @app.post("/predict")
 def predict_fraud(data: TransactionInput):
-    input_df = pd.DataFrame([{
-        "amount": data.amount,
-        "customer_age": data.customer_age,
-        "hour": data.hour,
-        "transaction_type": data.transaction_type,
-        "merchant_category": data.merchant_category,
-        "card_type": data.card_type,
-        "country": data.country,
-        "device": data.device,
-    }])
+    X = transform_input(data.dict())
 
-    prob = model.predict_proba(input_df)[0][1]
+    prob = model.predict_proba(X)[0][1]
 
     return {
         "fraud_probability": round(float(prob), 4),
